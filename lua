@@ -2,7 +2,11 @@
 
 local GuiLibrary = {}
 
-local defaultGuiSize = UDim2.new(0, 400, 0, 300) -- Default size for the main GUI
+-- Size of the GUI
+local guiWidth = 600
+local guiHeight = 400
+local guiSize = UDim2.new(0, guiWidth, 0, guiHeight)
+
 local defaultGuiPosition = UDim2.new(0.5, -200, 0.5, -150) -- Default position for the main GUI
 
 local menuVisible = true -- Variable to track the visibility of the GUI menu
@@ -15,12 +19,37 @@ local keybinds = {}
 function GuiLibrary.CreateFrame(name, parent, size, position, backgroundColor)
     local frame = Instance.new("Frame")
     frame.Name = name
-    frame.Size = size or defaultGuiSize -- Use the default size if not provided
-    frame.Position = position or defaultGuiPosition -- Use the default position if not provided
+    frame.Size = size or guiSize -- Use the default size if not provided
+    frame.Position = position or UDim2.new(0.5, -guiWidth/2, 0.5, -guiHeight/2) -- Center the GUI if position not provided
     frame.BackgroundColor3 = backgroundColor or Color3.new(1, 1, 1)
     frame.Parent = parent or nil
 
     return frame
+end
+
+-- Create a new separator
+function GuiLibrary.CreateSeparator(name, parent, size, position, orientation, lineColor, lineThickness)
+    local separator = Instance.new("Frame")
+    separator.Name = name
+    separator.Size = size or UDim2.new(1, 0, 0, 2) -- Default size with 2-pixel height
+    separator.Position = position or UDim2.new(0, 0, 0, 0)
+    separator.BackgroundColor3 = lineColor or Color3.new(0, 0, 0) -- Default color is black
+    separator.BorderSizePixel = 0
+    separator.Parent = parent or nil
+
+    if orientation == "Vertical" then
+        separator.Rotation = 90
+    else
+        separator.Rotation = 0
+    end
+
+    -- Set custom line thickness
+    if lineThickness then
+        separator.Size = UDim2.new(size.X.Scale, size.X.Offset, size.Y.Scale, lineThickness)
+        separator.Position = UDim2.new(position.X.Scale, position.X.Offset, position.Y.Scale, position.Y.Offset + (size.Y.Offset - lineThickness) / 2)
+    end
+
+    return separator
 end
 
 -- Function to toggle the blur effect
@@ -126,6 +155,32 @@ function GuiLibrary.CreateDropdown(name, parent, size, position, options, defaul
     return dropdown
 end
 
+-- Save and load configurations
+local configurations = {}
+
+function GuiLibrary.SaveLoadConfigurations(configName, dropdown, sliderValue, inputValue, saveButton, loadButton)
+    saveButton.MouseButton1Click:Connect(function()
+        local config = {}
+        config.dropdownOption = dropdown.Text
+        config.sliderValue = sliderValue.Value
+        config.inputValue = inputValue.Text
+        configurations[configName] = config
+        print("Configuration '"..configName.."' saved.")
+    end)
+
+    loadButton.MouseButton1Click:Connect(function()
+        local config = configurations[configName]
+        if config then
+            dropdown.Text = config.dropdownOption
+            sliderValue.Value = config.sliderValue
+            inputValue.Text = config.inputValue
+            print("Configuration '"..configName.."' loaded.")
+        else
+            print("Configuration '"..configName.."' not found.")
+        end
+    end)
+end
+
 -- Function to create a new keybind
 function GuiLibrary.CreateKeybind(name, keyCode, callback)
     local keybind = {
@@ -185,11 +240,11 @@ function GuiLibrary.CreateTextLabel(name, parent, size, position, text)
     return label
 end
 
--- Create a new slider
-function GuiLibrary.CreateSlider(name, parent, size, position, min, max, defaultValue)
+-- Create a new slider with labels
+function GuiLibrary.CreateSliderWithLabels(name, parent, size, position, min, max, defaultValue)
     local slider = Instance.new("Frame")
     slider.Name = name
-    slider.Size = size or UDim2.new(0, 200, 0, 20)
+    slider.Size = size or UDim2.new(0, 200, 0, 40)
     slider.Position = position or UDim2.new(0, 0, 0, 0)
     slider.BackgroundColor3 = Color3.new(0, 0, 0)
     slider.BorderSizePixel = 1
@@ -198,7 +253,7 @@ function GuiLibrary.CreateSlider(name, parent, size, position, min, max, default
 
     local sliderHandle = Instance.new("Frame")
     sliderHandle.Name = "Handle"
-    sliderHandle.Size = UDim2.new(0, 20, 0, 20)
+    sliderHandle.Size = UDim2.new(0, 20, 0, 40)
     sliderHandle.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
     sliderHandle.Parent = slider
 
@@ -207,11 +262,23 @@ function GuiLibrary.CreateSlider(name, parent, size, position, min, max, default
     sliderValue.Value = defaultValue or 0
     sliderValue.Parent = slider
 
+    local sliderLabel = Instance.new("TextLabel")
+    sliderLabel.Name = "Label"
+    sliderLabel.Size = UDim2.new(1, 0, 0, 20)
+    sliderLabel.Position = UDim2.new(0, 0, 1, 0)
+    sliderLabel.BackgroundTransparency = 1
+    sliderLabel.Text = tostring(defaultValue or 0)
+    sliderLabel.TextColor3 = Color3.new(1, 1, 1)
+    sliderLabel.Font = Enum.Font.SourceSans
+    sliderLabel.TextSize = 14
+    sliderLabel.Parent = slider
+
     -- Function to update the slider value based on the handle's position
     local function updateSliderValue()
         local percentage = (sliderHandle.Position.X.Offset - slider.Position.X.Offset) / (slider.Size.X.Offset - sliderHandle.Size.X.Offset)
         local value = min + (max - min) * percentage
         sliderValue.Value = value
+        sliderLabel.Text = tostring(value)
     end
 
     -- Function to handle the mouse dragging on the slider handle
@@ -237,6 +304,72 @@ function GuiLibrary.CreateSlider(name, parent, size, position, min, max, default
     sliderHandle.InputChanged:Connect(onDrag)
 
     return slider, sliderValue
+end
+
+-- Create a new scrollbar
+function GuiLibrary.CreateScrollbar(name, parent, size, position)
+    local scrollbar = Instance.new("Frame")
+    scrollbar.Name = name
+    scrollbar.Size = size or UDim2.new(0, 10, 0, 200)
+    scrollbar.Position = position or UDim2.new(1, -10, 0, 0)
+    scrollbar.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+    scrollbar.BorderSizePixel = 0
+    scrollbar.Parent = parent or nil
+
+    local verticalScrollEvent = Instance.new("BindableEvent")
+    verticalScrollEvent.Name = "VerticalScroll"
+    verticalScrollEvent.Parent = scrollbar
+
+    local horizontalScrollEvent = Instance.new("BindableEvent")
+    horizontalScrollEvent.Name = "HorizontalScroll"
+    horizontalScrollEvent.Parent = scrollbar
+
+    -- Function to handle vertical scrolling
+    local function onVerticalScroll(input)
+        local scrollDeltaY = input.Position.Y - scrollbar.AbsolutePosition.Y
+        local scrollPercentage = scrollDeltaY / (scrollbar.AbsoluteSize.Y - 2) -- Subtract 2 to prevent scrollbar jumping to the bottom when clicking at the end
+        verticalScrollEvent:Fire(scrollPercentage)
+    end
+
+    -- Function to handle horizontal scrolling
+    local function onHorizontalScroll(input)
+        local scrollDeltaX = input.Position.X - scrollbar.AbsolutePosition.X
+        local scrollPercentage = scrollDeltaX / (scrollbar.AbsoluteSize.X - 2) -- Subtract 2 to prevent scrollbar jumping to the right when clicking at the end
+        horizontalScrollEvent:Fire(scrollPercentage)
+    end
+
+    -- Bind mouse events for scrollbar interaction
+    scrollbar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            if input.Position.Y >= scrollbar.AbsolutePosition.Y and input.Position.Y <= scrollbar.AbsolutePosition.Y + scrollbar.AbsoluteSize.Y then
+                onVerticalScroll(input)
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        input = scrollbar.InputChanged:Connect(onVerticalScroll)
+                    end
+                end)
+            elseif input.Position.X >= scrollbar.AbsolutePosition.X and input.Position.X <= scrollbar.AbsolutePosition.X + scrollbar.AbsoluteSize.X then
+                onHorizontalScroll(input)
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        input = scrollbar.InputChanged:Connect(onHorizontalScroll)
+                    end
+                end)
+            end
+        end
+    end)
+
+    scrollbar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            if input.Position.Y >= scrollbar.AbsolutePosition.Y and input.Position.Y <= scrollbar.AbsolutePosition.Y + scrollbar.AbsoluteSize.Y then
+                onVerticalScroll(input)
+            elseif input.Position.X >= scrollbar.AbsolutePosition.X and input.Position.X <= scrollbar.AbsolutePosition.X + scrollbar.AbsoluteSize.X then
+                onHorizontalScroll(input)
+            end
+        end
+    end)
+
+    return scrollbar, verticalScrollEvent, horizontalScrollEvent
 end
 
 -- Create a new input box
