@@ -5,6 +5,12 @@ local GuiLibrary = {}
 local defaultGuiSize = UDim2.new(0, 400, 0, 300) -- Default size for the main GUI
 local defaultGuiPosition = UDim2.new(0.5, -200, 0.5, -150) -- Default position for the main GUI
 
+local menuVisible = true -- Variable to track the visibility of the GUI menu
+local blurEffect = nil -- Variable to store the BlurEffect object
+
+-- Keybinds table to store the created keybinds
+local keybinds = {}
+
 -- Create a new frame
 function GuiLibrary.CreateFrame(name, parent, size, position, backgroundColor)
     local frame = Instance.new("Frame")
@@ -16,6 +22,144 @@ function GuiLibrary.CreateFrame(name, parent, size, position, backgroundColor)
 
     return frame
 end
+
+-- Function to toggle the blur effect
+function GuiLibrary.ToggleBlurEffect()
+    local guiMenu = game.Players.LocalPlayer.PlayerGui.ExampleGui -- Update 'ExampleGui' with the name of your GUI
+
+    if menuVisible then
+        -- Enable blur effect
+        if not blurEffect then
+            blurEffect = Instance.new("BlurEffect")
+            blurEffect.Parent = game.Lighting
+            blurEffect.Size = 10
+        end
+    else
+        -- Disable blur effect
+        if blurEffect then
+            blurEffect:Destroy()
+            blurEffect = nil
+        end
+    end
+end
+
+-- Create a new dropdown
+function GuiLibrary.CreateDropdown(name, parent, size, position, options, defaultOption, callback)
+    local dropdown = Instance.new("Frame")
+    dropdown.Name = name
+    dropdown.Size = size or UDim2.new(0, 150, 0, 30)
+    dropdown.Position = position or UDim2.new(0, 0, 0, 0)
+    dropdown.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
+    dropdown.BorderSizePixel = 1
+    dropdown.BorderColor3 = Color3.new(0.5, 0.5, 0.5)
+    dropdown.Parent = parent or nil
+
+    local dropdownLabel = Instance.new("TextLabel")
+    dropdownLabel.Name = "Label"
+    dropdownLabel.Size = UDim2.new(1, -20, 1, 0)
+    dropdownLabel.Position = UDim2.new(0, 10, 0, 0)
+    dropdownLabel.BackgroundTransparency = 1
+    dropdownLabel.Text = defaultOption or "Select an option"
+    dropdownLabel.TextColor3 = Color3.new(0, 0, 0)
+    dropdownLabel.Font = Enum.Font.SourceSans
+    dropdownLabel.TextSize = 14
+    dropdownLabel.Parent = dropdown
+
+    local arrow = Instance.new("TextLabel")
+    arrow.Name = "Arrow"
+    arrow.Size = UDim2.new(0, 20, 1, 0)
+    arrow.Position = UDim2.new(1, -20, 0, 0)
+    arrow.BackgroundTransparency = 1
+    arrow.Text = "▼"
+    arrow.TextColor3 = Color3.new(0, 0, 0)
+    arrow.Font = Enum.Font.SourceSans
+    arrow.TextSize = 14
+    arrow.Parent = dropdown
+
+    local optionList = Instance.new("Frame")
+    optionList.Name = "OptionList"
+    optionList.Size = UDim2.new(1, 0, 0, 0)
+    optionList.Position = UDim2.new(0, 0, 1, 0)
+    optionList.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
+    optionList.BorderSizePixel = 1
+    optionList.BorderColor3 = Color3.new(0.5, 0.5, 0.5)
+    optionList.Visible = false
+    optionList.Parent = dropdown
+
+    local optionHeight = 25
+
+    for _, optionText in ipairs(options) do
+        local optionButton = Instance.new("TextButton")
+        optionButton.Name = optionText
+        optionButton.Size = UDim2.new(1, 0, 0, optionHeight)
+        optionButton.BackgroundTransparency = 1
+        optionButton.Text = optionText
+        optionButton.TextColor3 = Color3.new(0, 0, 0)
+        optionButton.Font = Enum.Font.SourceSans
+        optionButton.TextSize = 14
+        optionButton.Parent = optionList
+
+        optionHeight = optionHeight + 25
+
+        -- Handle option selection
+        optionButton.MouseButton1Click:Connect(function()
+            dropdownLabel.Text = optionText
+            optionList.Visible = false
+            if callback then
+                callback(optionText)
+            end
+        end)
+    end
+
+    -- Toggle the option list visibility when the arrow is clicked
+    arrow.MouseButton1Click:Connect(function()
+        optionList.Visible = not optionList.Visible
+    end)
+
+    -- Close the option list when clicking outside the dropdown
+    game:GetService("UserInputService").InputBegan:Connect(function(input, isProcessed)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and optionList.Visible and not dropdown:IsAncestorOf(input.Target) then
+            optionList.Visible = false
+        end
+    end)
+
+    return dropdown
+end
+
+-- Function to create a new keybind
+function GuiLibrary.CreateKeybind(name, keyCode, callback)
+    local keybind = {
+        Name = name,
+        KeyCode = keyCode,
+        Callback = callback,
+        Enabled = true
+    }
+
+    table.insert(keybinds, keybind)
+
+    return keybind
+end
+
+-- Function to enable or disable a keybind
+function GuiLibrary.SetKeybindEnabled(keybind, isEnabled)
+    if keybind and type(isEnabled) == "boolean" then
+        keybind.Enabled = isEnabled
+    end
+end
+
+-- Function to handle key press events
+local function onKeyDown(input, gameProcessedEvent)
+    if not gameProcessedEvent then
+        for _, keybind in ipairs(keybinds) do
+            if keybind.Enabled and input.KeyCode == keybind.KeyCode then
+                keybind.Callback()
+            end
+        end
+    end
+end
+
+-- Bind the key press event
+game:GetService("UserInputService").InputBegan:Connect(onKeyDown)
 
 -- Create a new button
 function GuiLibrary.CreateButton(name, parent, size, position, text)
@@ -298,6 +442,61 @@ function GuiLibrary.CreateColorPicker(name, parent, size, position, defaultColor
     colorPicker.MouseButton1Click:Connect(toggleColorPickerFrame)
 
     return colorPicker
+end
+
+-- Create a new toggle button
+function GuiLibrary.CreateToggle(name, parent, size, position, defaultState)
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = name
+    toggleButton.Size = size or UDim2.new(0, 100, 0, 50)
+    toggleButton.Position = position or UDim2.new(0, 0, 0, 0)
+    toggleButton.Text = ""
+    toggleButton.Parent = parent or nil
+
+    local toggleState = Instance.new("BoolValue")
+    toggleState.Name = "ToggleState"
+    toggleState.Value = defaultState or false
+    toggleState.Parent = toggleButton
+
+    -- Add styling to the toggle button
+    toggleButton.AutoButtonColor = false
+    toggleButton.BorderSizePixel = 0
+    toggleButton.ClipsDescendants = true
+    toggleButton.BackgroundTransparency = 0.1
+    toggleButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+
+    -- Create the toggle indicator (the circle inside the button)
+    local toggleIndicator = Instance.new("Frame")
+    toggleIndicator.Name = "ToggleIndicator"
+    toggleIndicator.Size = UDim2.new(0, 40, 0, 40)
+    toggleIndicator.Position = UDim2.new(0.5, -20, 0.5, -20)
+    toggleIndicator.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
+    toggleIndicator.Parent = toggleButton
+
+    -- Function to toggle the state of the toggle button
+    local function toggle()
+        toggleState.Value = not toggleState.Value
+        toggleIndicator.BackgroundColor3 = toggleState.Value and Color3.new(0.2, 0.8, 0.2) or Color3.new(0.8, 0.8, 0.8)
+    end
+
+    -- Bind mouse event for toggling the button state
+    toggleButton.MouseButton1Click:Connect(toggle)
+
+    return toggleButton, toggleState
+end
+
+-- Create a new section
+function GuiLibrary.CreateSection(name, parent, size, position)
+    local section = Instance.new("Frame")
+    section.Name = name
+    section.Size = size or UDim2.new(0, 200, 0, 100)
+    section.Position = position or UDim2.new(0, 0, 0, 0)
+    section.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
+    section.BorderSizePixel = 1
+    section.BorderColor3 = Color3.new(0.5, 0.5, 0.5)
+    section.Parent = parent or nil
+
+    return section
 end
 
 return GuiLibrary
